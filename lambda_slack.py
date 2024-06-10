@@ -8,7 +8,7 @@ def lambda_handler(event, context):
     resource_id = event['detail']['responseElements']['instancesSet']['items'][0]['instanceId']
     ec2_client = boto3.client('ec2')
     
-    # 리소스의 태그 확인
+    # 리소스의 태그 확인 fdsfdsf
     response = ec2_client.describe_tags(Filters=[
         {'Name': 'resource-id', 'Values': [resource_id]}
     ])
