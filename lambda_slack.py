@@ -3,28 +3,27 @@ import boto3
 import os
 import requests
 
+def post_slack(message, slack_url):
+    send_data = {
+        "text": message,
+    }
+    response = requests.post(slack_url, json=send_data)
+
 def lambda_handler(event, context):
+    event_detail = event['detail']
     slack_url = os.environ['SLACK_URL']
-    resource_id = event['detail']['responseElements']['instancesSet']['items'][0]['instanceId']
+    resource_id =  event_detail['responseElements']['instancesSet']['items'][0]['instanceId']
     ec2_client = boto3.client('ec2')
     
-    # 리소스의 태그 확인 fdsfdsf
-    response = ec2_client.describe_tags(Filters=[
-        {'Name': 'resource-id', 'Values': [resource_id]}
-    ])
-    
-    if not response['Tags']:
-        # 태그가 없으면 태그 추가
+    response = ec2_client.describe_tags(Filters=[{'Name': 'resource-id', 'Values': [resource_id]}])
+    post_slack(f"{response}", slack_url)
+    tags = response.get('Tags', [])
+    non_default_tags = [tag for tag in tags if tag['Key'] != 'Name']
+    if non_default_tags:
+            post_slack(f"Instance {resource_id} has additional tags: {non_default_tags}", slack_url)
+    else:
         ec2_client.create_tags(
             Resources=[resource_id],
             Tags=[{'Key': 'Name', 'Value': 'AutoTagged'}]
         )
-        
-        # Slack으로 알림 보내기
-        message = f"Instance {resource_id} has been tagged automatically."
-        requests.post(slack_url, json={'text': message})
-    
-    return {
-        'statusCode': 200,
-        'body': json.dumps('Tagging and notification complete')
-    }
+        post_slack(f"Instance {resource_id} has been tagged automatically.", slack_url)
