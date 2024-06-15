@@ -47,6 +47,11 @@ def lambda_handler(event, context):
                 )
                 slack_message += f"Tagged resource {resource_id} with Auto=AutoTagged\n"
 
+
+
+
+
+
     # Slack에 메시지 전송
     if slack_message:
         send_slack_message(slack_message)
