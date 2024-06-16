@@ -4,9 +4,10 @@ import requests
 import os
 
 def lambda_handler(event, context):
+    # AWS Config 및 EC2 클라이언트 생성
     config_client = boto3.client('config')
     ec2_client = boto3.client('ec2')
-    
+
     # AWS Config에서 지원하는 모든 리소스 타입 목록
     resource_types = [
         'AWS::EC2::Instance',
@@ -14,7 +15,7 @@ def lambda_handler(event, context):
     ]
 
     all_resources = []
-
+    # 각 리소스 타입에 대해 발견된 리소스를 all_resources 리스트에 추가
     for resource_type in resource_types:
         response = config_client.list_discovered_resources(resourceType=resource_type)
         resources = response.get('resourceIdentifiers', [])
@@ -23,18 +24,20 @@ def lambda_handler(event, context):
     tag_info = []
     slack_message = ""
 
+    # 리소스를 순회하며 태그 정보를 확인 및 추가
     for resource in all_resources:
         resource_type = resource["resourceType"]
         resource_id = resource["resourceId"]
 
         if resource_type == "AWS::EC2::Instance":
-            # EC2 리소스의 태그 가져오기
+            # EC2 인스턴스의 태그 가져오기
             tags_response = ec2_client.describe_tags(
                 Filters=[
                     {'Name': 'resource-id', 'Values': [resource_id]}
                 ]
             )
             tags = tags_response.get('Tags', [])
+            # 태그 정보를 tag_info 리스트에 추가
             tag_info.append({
                 "resourceId": resource_id,
                 "tags": tags
@@ -45,12 +48,8 @@ def lambda_handler(event, context):
                     Resources=[resource_id],
                     Tags=[{'Key': "Auto", 'Value': "AutoTagged"}]
                 )
+                # Slack 메시지에 태그 추가 정보 기록
                 slack_message += f"Tagged resource {resource_id} with Auto=AutoTagged\n"
-
-
-
-
-
 
     # Slack에 메시지 전송
     if slack_message:
@@ -65,13 +64,16 @@ def lambda_handler(event, context):
     }
 
 def send_slack_message(message):
+    # 환경 변수에서 Slack 웹훅 URL 가져오기
     webhook_url = os.environ['SLACK_URL']
     slack_data = {'text': message}
     
+    # Slack에 POST 요청 보내기
     response = requests.post(
         webhook_url, data=json.dumps(slack_data),
         headers={'Content-Type': 'application/json'}
     )
     
+    # 요청 실패 시 예외 발생
     if response.status_code != 200:
         raise ValueError(f"Request to slack returned an error {response.status_code}, the response is:\n{response.text}")
